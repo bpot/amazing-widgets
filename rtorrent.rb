@@ -6,21 +6,19 @@ class Rtorrent < Widget
   field :download_rate, "Download Rate"
   field :incomplete_count, "Number Incomplete"
   field :seeding_count, "Number Seeding"
-  default { "S: " + @seeding_count.to_s + "|" + "D: " + @incomplete_count.to_s + " (" + @upload_rate + "Kb/" + @download_rate + "Kb)" }
-
+  default { @upload_rate.to_i.to_s + " / " + @download_rate.to_i.to_s  }
 
   init do
     server = XMLRPC::Client.new2(@path)
-    torrents = server.call("download_list")
+
     @seeding_count = server.call("download_list","seeding").size
     @incomplete_count = server.call("download_list","incomplete").size
-    @upload_rate = 0.0
-    @download_rate = 0.0
-    torrents.each do |t|
-      @upload_rate += server.call("d.get_up_rate",t)
-      @download_rate += server.call("d.get_down_rate",t)
-    end
-    @upload_rate = "%.1f" % (@upload_rate/1024.0)
-    @download_rate = "%.1f" % (@download_rate/1024.0)
+    
+    data = server.call("d.multicall","started","d.get_up_rate=","d.get_down_rate=")
+    @upload_rate, @download_rate = data.inject([0,0]) {|sum,v| [sum[0] + v[0], sum[1] + v[1]] }
+
+    # Convert to KB/s 
+    @upload_rate  /= 1024.0
+    @download_rate  /= 1024.0
   end
 end
